@@ -67,10 +67,8 @@ public class PeUserController {
      */
     @PostMapping("/login")
     public Result<Map<String, Object>> login(@Valid @RequestBody UserLoginDTO dto) {
-        String token = peUserService.login(dto);
-        Map<String, Object> data = new HashMap<>();
-        data.put("token", token);
-        return Result.success(data);
+        Map<String, Object> result = peUserService.login(dto);
+        return Result.success(result);
     }
 
     /**

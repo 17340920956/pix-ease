@@ -1,0 +1,19 @@
+spring:
+  datasource:
+    url: jdbc:mysql://mysql:3306/pix_ease?useUnicode=true&characterEncoding=utf-8&useSSL=false&serverTimezone=Asia/Shanghai&allowPublicKeyRetrieval=true
+    username: root
+    password: ${MYSQL_ROOT_PASSWORD:pixEase2026!}
+  data:
+    redis:
+      host: redis
+      database: 0
+
+logging:
+  file:
+    path: logs/app
+
+pixease:
+  sign:
+    secret: ${SIGN_SECRET:pixease-sign-secret-2026}
+  token:
+    secret: ${TOKEN_SECRET:pixease-token-secret-prod-2026!!}

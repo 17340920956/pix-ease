@@ -102,6 +102,36 @@ public class SignAuthFilter implements Filter {
             }
         });
 
+        ServletRequest requestToUse = request;
+        String contentType = httpRequest.getContentType();
+        String method = httpRequest.getMethod();
+        if (contentType != null && contentType.contains("application/json")
+                && ("POST".equalsIgnoreCase(method) || "PUT".equalsIgnoreCase(method)
+                || "PATCH".equalsIgnoreCase(method))) {
+            try {
+                CachedBodyHttpServletRequest cachedRequest = new CachedBodyHttpServletRequest(httpRequest);
+                String body = cachedRequest.getCachedBodyString();
+                if (StringUtils.isNotBlank(body)) {
+                    try {
+                        @SuppressWarnings("unchecked")
+                        Map<String, Object> jsonParams = JSON.parseObject(body, Map.class);
+                        if (jsonParams != null) {
+                            jsonParams.forEach((key, value) -> {
+                                if (value != null) {
+                                    params.put(key, value.toString());
+                                }
+                            });
+                        }
+                    } catch (Exception e) {
+                        log.warn("解析 JSON 请求体失败: {}", e.getMessage());
+                    }
+                }
+                requestToUse = cachedRequest;
+            } catch (IOException e) {
+                log.warn("读取请求体失败: {}", e.getMessage());
+            }
+        }
+
         boolean verified = SignUtils.verifySign(params, timestamp, nonce, signSecret, sign);
         if (!verified) {
             writeErrorResponse(httpResponse, ResultCode.SIGN_ERROR.getCode(),
@@ -111,7 +141,7 @@ public class SignAuthFilter implements Filter {
 
         redisTemplate.opsForValue().set(nonceKey, "1", signExpireSeconds, TimeUnit.SECONDS);
 
-        chain.doFilter(request, response);
+        chain.doFilter(requestToUse, response);
     }
 
     /**

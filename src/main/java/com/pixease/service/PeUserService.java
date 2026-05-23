@@ -10,6 +10,8 @@ import com.pixease.dto.UserUpdateDTO;
 import com.pixease.entity.PeUser;
 import com.pixease.vo.UserVO;
 
+import java.util.Map;
+
 /**
  * 用户服务接口
  */
@@ -38,9 +40,9 @@ public interface PeUserService {
      * 连续5次密码错误将锁定账号30分钟
      *
      * @param dto 登录参数
-     * @return JWT Token字符串
+     * @return Map包含token和user（密码已脱敏）
      */
-    String login(UserLoginDTO dto);
+    Map<String, Object> login(UserLoginDTO dto);
 
     /**
      * 管理员登录

@@ -30,6 +30,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.security.SecureRandom;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
@@ -158,11 +160,15 @@ public class PeUserServiceImpl extends ServiceImpl<PeUserMapper, PeUser> impleme
      * 5. 生成JWT Token（含角色信息）并存入Redis
      */
     @Override
-    public String login(UserLoginDTO dto) {
+    public Map<String, Object> login(UserLoginDTO dto) {
         checkAccountLock(dto.getAccount());
 
         LambdaQueryWrapper<PeUser> wrapper = new LambdaQueryWrapper<>();
-        wrapper.eq(PeUser::getAccount, dto.getAccount());
+        if (dto.getAccount().contains("@")) {
+            wrapper.eq(PeUser::getEmail, dto.getAccount());
+        } else {
+            wrapper.eq(PeUser::getAccount, dto.getAccount());
+        }
         PeUser user = getOne(wrapper);
 
         if (user == null) {
@@ -177,7 +183,14 @@ public class PeUserServiceImpl extends ServiceImpl<PeUserMapper, PeUser> impleme
 
         clearLoginFail(dto.getAccount());
 
-        return generateAndStoreToken(user);
+        String token = generateAndStoreToken(user);
+
+        user.setPassword(null);
+
+        Map<String, Object> result = new HashMap<>();
+        result.put("token", token);
+        result.put("user", user);
+        return result;
     }
 
     /**
@@ -194,7 +207,11 @@ public class PeUserServiceImpl extends ServiceImpl<PeUserMapper, PeUser> impleme
         checkAccountLock(dto.getAccount());
 
         LambdaQueryWrapper<PeUser> wrapper = new LambdaQueryWrapper<>();
-        wrapper.eq(PeUser::getAccount, dto.getAccount());
+        if (dto.getAccount().contains("@")) {
+            wrapper.eq(PeUser::getEmail, dto.getAccount());
+        } else {
+            wrapper.eq(PeUser::getAccount, dto.getAccount());
+        }
         PeUser user = getOne(wrapper);
 
         if (user == null) {

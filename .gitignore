@@ -2,6 +2,10 @@
 /node_modules
 /vendor
 
+# build output
+/target
+target/
+
 # logs
 logs
 *.log
@@ -32,3 +36,4 @@ Thumbs.db
 # IDE
 .vscode/
 .idea/
+*.iml

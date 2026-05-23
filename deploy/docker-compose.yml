@@ -1,0 +1,150 @@
+services:
+  nginx:
+    image: nginx:alpine
+    container_name: pix-ease-nginx
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./nginx/ssl:/etc/nginx/ssl:ro
+    depends_on:
+      - web-prod
+      - web-qa
+      - admin-prod
+      - admin-qa
+      - backend-prod
+      - backend-qa
+    restart: unless-stopped
+    networks:
+      - pix-ease-net
+
+  web-prod:
+    build:
+      context: ./web
+      dockerfile: Dockerfile
+      args:
+        NEXT_PUBLIC_API_BASE_URL: /api
+        NEXT_PUBLIC_BASE_PATH: ""
+    container_name: pix-ease-web-prod
+    restart: unless-stopped
+    networks:
+      - pix-ease-net
+
+  web-qa:
+    build:
+      context: ./web
+      dockerfile: Dockerfile
+      args:
+        NEXT_PUBLIC_API_BASE_URL: /qa/api
+        NEXT_PUBLIC_BASE_PATH: /qa
+    container_name: pix-ease-web-qa
+    restart: unless-stopped
+    networks:
+      - pix-ease-net
+
+  admin-prod:
+    build:
+      context: ./admin
+      dockerfile: Dockerfile
+      args:
+        VITE_API_BASE_URL: /api
+        VITE_BASE: /admin/
+    container_name: pix-ease-admin-prod
+    restart: unless-stopped
+    networks:
+      - pix-ease-net
+
+  admin-qa:
+    build:
+      context: ./admin
+      dockerfile: Dockerfile
+      args:
+        VITE_API_BASE_URL: /qa/api
+        VITE_BASE: /qa/admin/
+    container_name: pix-ease-admin-qa
+    restart: unless-stopped
+    networks:
+      - pix-ease-net
+
+  backend-prod:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: pix-ease-backend-prod
+    environment:
+      - SPRING_PROFILES_ACTIVE=prod
+      - MYSQL_ROOT_PASSWORD=${MYSQL_ROOT_PASSWORD:-pixEase2026!}
+      - SIGN_SECRET=${PROD_SIGN_SECRET:-pixease-sign-secret-2026}
+      - TOKEN_SECRET=${PROD_TOKEN_SECRET:-pixease-token-secret-prod-2026}
+    volumes:
+      - ./logs/prod:/app/logs
+    depends_on:
+      mysql:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+    networks:
+      - pix-ease-net
+
+  backend-qa:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: pix-ease-backend-qa
+    environment:
+      - SPRING_PROFILES_ACTIVE=qa
+      - MYSQL_ROOT_PASSWORD=${MYSQL_ROOT_PASSWORD:-pixEase2026!}
+      - SIGN_SECRET=${QA_SIGN_SECRET:-pixease-sign-secret-2026}
+      - TOKEN_SECRET=${QA_TOKEN_SECRET:-pixease-token-secret-qa-2026}
+    volumes:
+      - ./logs/qa:/app/logs
+    depends_on:
+      mysql:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+    networks:
+      - pix-ease-net
+
+  mysql:
+    image: mysql:8.0
+    container_name: pix-ease-mysql
+    environment:
+      - MYSQL_ROOT_PASSWORD=${MYSQL_ROOT_PASSWORD:-pixEase2026!}
+    volumes:
+      - ./mysql/data:/var/lib/mysql
+      - ./mysql/init:/docker-entrypoint-initdb.d:ro
+    ports:
+      - "127.0.0.1:3306:3306"
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-p${MYSQL_ROOT_PASSWORD:-pixEase2026!}"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    restart: unless-stopped
+    networks:
+      - pix-ease-net
+
+  redis:
+    image: redis:7-alpine
+    container_name: pix-ease-redis
+    command: redis-server --appendonly yes --maxmemory 256mb --maxmemory-policy allkeys-lru
+    volumes:
+      - ./redis/data:/data
+    ports:
+      - "127.0.0.1:6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+    networks:
+      - pix-ease-net
+
+networks:
+  pix-ease-net:
+    driver: bridge
