@@ -15,7 +15,7 @@ CREATE TABLE IF NOT EXISTS pe_user (
     email VARCHAR(128) NOT NULL COMMENT '邮箱号',
     role TINYINT NOT NULL DEFAULT 0 COMMENT '角色标识 0-普通用户 1-管理员',
     PRIMARY KEY (id),
-    UNIQUE KEY uk_account (account),
+    KEY idx_account (account),
     KEY idx_email (email)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='用户表';
 
@@ -33,6 +33,6 @@ CREATE TABLE IF NOT EXISTS pe_user (
     email VARCHAR(128) NOT NULL COMMENT '邮箱号',
     role TINYINT NOT NULL DEFAULT 0 COMMENT '角色标识 0-普通用户 1-管理员',
     PRIMARY KEY (id),
-    UNIQUE KEY uk_account (account),
+    KEY idx_account (account),
     KEY idx_email (email)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='用户表';
