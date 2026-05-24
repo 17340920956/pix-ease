@@ -138,7 +138,6 @@ public class PeUserServiceImpl extends ServiceImpl<PeUserMapper, PeUser> impleme
         user.setPassword(PasswordUtils.encode(sha256(dto.getPassword())));
         user.setEmail(dto.getEmail());
         user.setRole(UserRole.USER.getValue());
-        user.setPasswordVersion(1);
 
         save(user);
 
@@ -197,23 +196,8 @@ public class PeUserServiceImpl extends ServiceImpl<PeUserMapper, PeUser> impleme
         }
 
         if (!PasswordUtils.matches(dto.getPassword(), user.getPassword())) {
-            if (user.getPasswordVersion() == null || user.getPasswordVersion() == 0) {
-                if (PasswordUtils.matches(sha256(dto.getPassword()), user.getPassword())) {
-                    user.setPassword(PasswordUtils.encode(dto.getPassword()));
-                    user.setPasswordVersion(1);
-                    updateById(user);
-                } else {
-                    recordLoginFail(dto.getAccount());
-                    throw new BusinessException(ResultCode.PASSWORD_ERROR);
-                }
-            } else {
-                recordLoginFail(dto.getAccount());
-                throw new BusinessException(ResultCode.PASSWORD_ERROR);
-            }
-        } else if (user.getPasswordVersion() == null || user.getPasswordVersion() == 0) {
-            user.setPassword(PasswordUtils.encode(dto.getPassword()));
-            user.setPasswordVersion(1);
-            updateById(user);
+            recordLoginFail(dto.getAccount());
+            throw new BusinessException(ResultCode.PASSWORD_ERROR);
         }
 
         clearLoginFail(dto.getAccount());
@@ -255,23 +239,8 @@ public class PeUserServiceImpl extends ServiceImpl<PeUserMapper, PeUser> impleme
         }
 
         if (!PasswordUtils.matches(dto.getPassword(), user.getPassword())) {
-            if (user.getPasswordVersion() == null || user.getPasswordVersion() == 0) {
-                if (PasswordUtils.matches(sha256(dto.getPassword()), user.getPassword())) {
-                    user.setPassword(PasswordUtils.encode(dto.getPassword()));
-                    user.setPasswordVersion(1);
-                    updateById(user);
-                } else {
-                    recordLoginFail(dto.getAccount());
-                    throw new BusinessException(ResultCode.PASSWORD_ERROR);
-                }
-            } else {
-                recordLoginFail(dto.getAccount());
-                throw new BusinessException(ResultCode.PASSWORD_ERROR);
-            }
-        } else if (user.getPasswordVersion() == null || user.getPasswordVersion() == 0) {
-            user.setPassword(PasswordUtils.encode(dto.getPassword()));
-            user.setPasswordVersion(1);
-            updateById(user);
+            recordLoginFail(dto.getAccount());
+            throw new BusinessException(ResultCode.PASSWORD_ERROR);
         }
 
         if (!UserRole.isAdmin(user.getRole())) {
@@ -368,7 +337,6 @@ public class PeUserServiceImpl extends ServiceImpl<PeUserMapper, PeUser> impleme
 
         if (dto.getPassword() != null) {
             user.setPassword(PasswordUtils.encode(sha256(dto.getPassword())));
-            user.setPasswordVersion(1);
         }
 
         updateById(user);
