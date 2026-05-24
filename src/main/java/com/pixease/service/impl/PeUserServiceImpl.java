@@ -29,10 +29,7 @@ import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.security.MessageDigest;
-import java.security.NoSuchAlgorithmException;
 import java.security.SecureRandom;
-import java.nio.charset.StandardCharsets;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
@@ -70,22 +67,6 @@ public class PeUserServiceImpl extends ServiceImpl<PeUserMapper, PeUser> impleme
     public PeUserServiceImpl(StringRedisTemplate redisTemplate, EmailService emailService) {
         this.redisTemplate = redisTemplate;
         this.emailService = emailService;
-    }
-
-    private String sha256(String input) {
-        try {
-            MessageDigest digest = MessageDigest.getInstance("SHA-256");
-            byte[] hash = digest.digest(input.getBytes(StandardCharsets.UTF_8));
-            StringBuilder hexString = new StringBuilder();
-            for (byte b : hash) {
-                String hex = Integer.toHexString(0xff & b);
-                if (hex.length() == 1) hexString.append('0');
-                hexString.append(hex);
-            }
-            return hexString.toString();
-        } catch (NoSuchAlgorithmException e) {
-            throw new RuntimeException("SHA-256 algorithm not available", e);
-        }
     }
 
     /**
@@ -135,7 +116,7 @@ public class PeUserServiceImpl extends ServiceImpl<PeUserMapper, PeUser> impleme
         PeUser user = new PeUser();
         user.setUserName(dto.getUserName());
         user.setAccount(generateAccount());
-        user.setPassword(PasswordUtils.encode(sha256(dto.getPassword())));
+        user.setPassword(PasswordUtils.encode(dto.getPassword()));
         user.setEmail(dto.getEmail());
         user.setRole(UserRole.USER.getValue());
 
@@ -336,7 +317,7 @@ public class PeUserServiceImpl extends ServiceImpl<PeUserMapper, PeUser> impleme
         }
 
         if (dto.getPassword() != null) {
-            user.setPassword(PasswordUtils.encode(sha256(dto.getPassword())));
+            user.setPassword(PasswordUtils.encode(dto.getPassword()));
         }
 
         updateById(user);
@@ -386,7 +367,7 @@ public class PeUserServiceImpl extends ServiceImpl<PeUserMapper, PeUser> impleme
             throw new BusinessException(ResultCode.ACCOUNT_NOT_FOUND);
         }
 
-        user.setPassword(PasswordUtils.encode(sha256(dto.getNewPassword())));
+        user.setPassword(PasswordUtils.encode(dto.getNewPassword()));
         updateById(user);
 
         String failKey = CommonConstant.REDIS_LOGIN_FAIL_PREFIX + user.getAccount();
