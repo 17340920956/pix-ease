@@ -29,7 +29,10 @@ import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
 import java.security.SecureRandom;
+import java.nio.charset.StandardCharsets;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
@@ -67,6 +70,22 @@ public class PeUserServiceImpl extends ServiceImpl<PeUserMapper, PeUser> impleme
     public PeUserServiceImpl(StringRedisTemplate redisTemplate, EmailService emailService) {
         this.redisTemplate = redisTemplate;
         this.emailService = emailService;
+    }
+
+    private String sha256(String input) {
+        try {
+            MessageDigest digest = MessageDigest.getInstance("SHA-256");
+            byte[] hash = digest.digest(input.getBytes(StandardCharsets.UTF_8));
+            StringBuilder hexString = new StringBuilder();
+            for (byte b : hash) {
+                String hex = Integer.toHexString(0xff & b);
+                if (hex.length() == 1) hexString.append('0');
+                hexString.append(hex);
+            }
+            return hexString.toString();
+        } catch (NoSuchAlgorithmException e) {
+            throw new RuntimeException("SHA-256 algorithm not available", e);
+        }
     }
 
     /**
@@ -116,9 +135,10 @@ public class PeUserServiceImpl extends ServiceImpl<PeUserMapper, PeUser> impleme
         PeUser user = new PeUser();
         user.setUserName(dto.getUserName());
         user.setAccount(generateAccount());
-        user.setPassword(PasswordUtils.encode(dto.getPassword()));
+        user.setPassword(PasswordUtils.encode(sha256(dto.getPassword())));
         user.setEmail(dto.getEmail());
         user.setRole(UserRole.USER.getValue());
+        user.setPasswordVersion(1);
 
         save(user);
 
@@ -177,8 +197,23 @@ public class PeUserServiceImpl extends ServiceImpl<PeUserMapper, PeUser> impleme
         }
 
         if (!PasswordUtils.matches(dto.getPassword(), user.getPassword())) {
-            recordLoginFail(dto.getAccount());
-            throw new BusinessException(ResultCode.PASSWORD_ERROR);
+            if (user.getPasswordVersion() == null || user.getPasswordVersion() == 0) {
+                if (PasswordUtils.matches(sha256(dto.getPassword()), user.getPassword())) {
+                    user.setPassword(PasswordUtils.encode(dto.getPassword()));
+                    user.setPasswordVersion(1);
+                    updateById(user);
+                } else {
+                    recordLoginFail(dto.getAccount());
+                    throw new BusinessException(ResultCode.PASSWORD_ERROR);
+                }
+            } else {
+                recordLoginFail(dto.getAccount());
+                throw new BusinessException(ResultCode.PASSWORD_ERROR);
+            }
+        } else if (user.getPasswordVersion() == null || user.getPasswordVersion() == 0) {
+            user.setPassword(PasswordUtils.encode(dto.getPassword()));
+            user.setPasswordVersion(1);
+            updateById(user);
         }
 
         clearLoginFail(dto.getAccount());
@@ -220,8 +255,23 @@ public class PeUserServiceImpl extends ServiceImpl<PeUserMapper, PeUser> impleme
         }
 
         if (!PasswordUtils.matches(dto.getPassword(), user.getPassword())) {
-            recordLoginFail(dto.getAccount());
-            throw new BusinessException(ResultCode.PASSWORD_ERROR);
+            if (user.getPasswordVersion() == null || user.getPasswordVersion() == 0) {
+                if (PasswordUtils.matches(sha256(dto.getPassword()), user.getPassword())) {
+                    user.setPassword(PasswordUtils.encode(dto.getPassword()));
+                    user.setPasswordVersion(1);
+                    updateById(user);
+                } else {
+                    recordLoginFail(dto.getAccount());
+                    throw new BusinessException(ResultCode.PASSWORD_ERROR);
+                }
+            } else {
+                recordLoginFail(dto.getAccount());
+                throw new BusinessException(ResultCode.PASSWORD_ERROR);
+            }
+        } else if (user.getPasswordVersion() == null || user.getPasswordVersion() == 0) {
+            user.setPassword(PasswordUtils.encode(dto.getPassword()));
+            user.setPasswordVersion(1);
+            updateById(user);
         }
 
         if (!UserRole.isAdmin(user.getRole())) {
@@ -317,7 +367,8 @@ public class PeUserServiceImpl extends ServiceImpl<PeUserMapper, PeUser> impleme
         }
 
         if (dto.getPassword() != null) {
-            user.setPassword(PasswordUtils.encode(dto.getPassword()));
+            user.setPassword(PasswordUtils.encode(sha256(dto.getPassword())));
+            user.setPasswordVersion(1);
         }
 
         updateById(user);
@@ -367,7 +418,7 @@ public class PeUserServiceImpl extends ServiceImpl<PeUserMapper, PeUser> impleme
             throw new BusinessException(ResultCode.ACCOUNT_NOT_FOUND);
         }
 
-        user.setPassword(PasswordUtils.encode(dto.getNewPassword()));
+        user.setPassword(PasswordUtils.encode(sha256(dto.getNewPassword())));
         updateById(user);
 
         String failKey = CommonConstant.REDIS_LOGIN_FAIL_PREFIX + user.getAccount();

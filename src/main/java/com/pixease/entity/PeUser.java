@@ -39,8 +39,11 @@ public class PeUser {
     /** 账号 */
     private String account;
 
-    /** 密码（BCrypt加密存储） */
+    /** 密码（BCrypt(SHA256(原文))加密存储） */
     private String password;
+
+    /** 密码版本 0-旧版BCrypt(原文) 1-新版BCrypt(SHA256(原文)) */
+    private Integer passwordVersion;
 
     /** 邮箱号 */
     private String email;
