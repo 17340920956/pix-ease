@@ -30,6 +30,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.security.SecureRandom;
+import java.time.Duration;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
@@ -101,29 +102,38 @@ public class PeUserServiceImpl extends ServiceImpl<PeUserMapper, PeUser> impleme
     @Override
     @Transactional(rollbackFor = Exception.class)
     public PeUser register(UserRegisterDTO dto) {
-        boolean codeValid = emailService.verifyCode(dto.getEmail(), dto.getCode());
-        if (!codeValid) {
-            throw new BusinessException(ResultCode.CODE_ERROR);
+        String lockKey = CommonConstant.REDIS_REGISTER_LOCK_PREFIX + dto.getEmail();
+        Boolean locked = redisTemplate.opsForValue().setIfAbsent(lockKey, "1", Duration.ofSeconds(10));
+        if (Boolean.FALSE.equals(locked)) {
+            throw new BusinessException(ResultCode.RATE_LIMIT_EXCEEDED);
         }
+        try {
+            boolean codeValid = emailService.verifyCode(dto.getEmail(), dto.getCode());
+            if (!codeValid) {
+                throw new BusinessException(ResultCode.CODE_ERROR);
+            }
 
-        LambdaQueryWrapper<PeUser> emailWrapper = new LambdaQueryWrapper<>();
-        emailWrapper.eq(PeUser::getEmail, dto.getEmail());
-        long emailCount = count(emailWrapper);
-        if (emailCount > 0) {
-            throw new BusinessException(ResultCode.EMAIL_EXISTS);
+            LambdaQueryWrapper<PeUser> emailWrapper = new LambdaQueryWrapper<>();
+            emailWrapper.eq(PeUser::getEmail, dto.getEmail());
+            long emailCount = count(emailWrapper);
+            if (emailCount > 0) {
+                throw new BusinessException(ResultCode.EMAIL_EXISTS);
+            }
+
+            PeUser user = new PeUser();
+            user.setUserName(dto.getUserName());
+            user.setAccount(generateAccount());
+            user.setPassword(PasswordUtils.encode(dto.getPassword()));
+            user.setEmail(dto.getEmail());
+            user.setRole(UserRole.USER.getValue());
+
+            save(user);
+
+            user.setPassword(null);
+            return user;
+        } finally {
+            redisTemplate.delete(lockKey);
         }
-
-        PeUser user = new PeUser();
-        user.setUserName(dto.getUserName());
-        user.setAccount(generateAccount());
-        user.setPassword(PasswordUtils.encode(dto.getPassword()));
-        user.setEmail(dto.getEmail());
-        user.setRole(UserRole.USER.getValue());
-
-        save(user);
-
-        user.setPassword(null);
-        return user;
     }
 
     /**
@@ -296,34 +306,43 @@ public class PeUserServiceImpl extends ServiceImpl<PeUserMapper, PeUser> impleme
     @Override
     @Transactional(rollbackFor = Exception.class)
     public PeUser update(Long userId, UserUpdateDTO dto) {
-        PeUser user = super.getById(userId);
-        if (user == null) {
-            throw new BusinessException(ResultCode.ACCOUNT_NOT_FOUND);
+        String lockKey = CommonConstant.REDIS_UPDATE_LOCK_PREFIX + userId;
+        Boolean locked = redisTemplate.opsForValue().setIfAbsent(lockKey, "1", Duration.ofSeconds(5));
+        if (Boolean.FALSE.equals(locked)) {
+            throw new BusinessException(ResultCode.RATE_LIMIT_EXCEEDED);
         }
-
-        if (dto.getEmail() != null && !dto.getEmail().equals(user.getEmail())) {
-            LambdaQueryWrapper<PeUser> emailWrapper = new LambdaQueryWrapper<>();
-            emailWrapper.eq(PeUser::getEmail, dto.getEmail());
-            emailWrapper.ne(PeUser::getId, userId);
-            long emailCount = count(emailWrapper);
-            if (emailCount > 0) {
-                throw new BusinessException(ResultCode.EMAIL_EXISTS);
+        try {
+            PeUser user = super.getById(userId);
+            if (user == null) {
+                throw new BusinessException(ResultCode.ACCOUNT_NOT_FOUND);
             }
-            user.setEmail(dto.getEmail());
+
+            if (dto.getEmail() != null && !dto.getEmail().equals(user.getEmail())) {
+                LambdaQueryWrapper<PeUser> emailWrapper = new LambdaQueryWrapper<>();
+                emailWrapper.eq(PeUser::getEmail, dto.getEmail());
+                emailWrapper.ne(PeUser::getId, userId);
+                long emailCount = count(emailWrapper);
+                if (emailCount > 0) {
+                    throw new BusinessException(ResultCode.EMAIL_EXISTS);
+                }
+                user.setEmail(dto.getEmail());
+            }
+
+            if (dto.getUserName() != null) {
+                user.setUserName(dto.getUserName());
+            }
+
+            if (dto.getPassword() != null) {
+                user.setPassword(PasswordUtils.encode(dto.getPassword()));
+            }
+
+            updateById(user);
+
+            user.setPassword(null);
+            return user;
+        } finally {
+            redisTemplate.delete(lockKey);
         }
-
-        if (dto.getUserName() != null) {
-            user.setUserName(dto.getUserName());
-        }
-
-        if (dto.getPassword() != null) {
-            user.setPassword(PasswordUtils.encode(dto.getPassword()));
-        }
-
-        updateById(user);
-
-        user.setPassword(null);
-        return user;
     }
 
     /**

@@ -52,6 +52,12 @@ public class CommonConstant {
     /** Redis中验证码校验失败次数计数前缀 */
     public static final String REDIS_CODE_FAIL_PREFIX = "pixease:code_fail:";
 
+    /** Redis中注册防重锁前缀 */
+    public static final String REDIS_REGISTER_LOCK_PREFIX = "pixease:lock:register:";
+
+    /** Redis中更新防重锁前缀 */
+    public static final String REDIS_UPDATE_LOCK_PREFIX = "pixease:lock:update:";
+
     /** 登录失败最大次数 */
     public static final int LOGIN_FAIL_MAX = 5;
 
